@@ -61,7 +61,8 @@ class AmazonSecurityGroupUpserter implements SecurityGroupUpserter, CloudProvide
               vpcId               : vpcId,
               description         : operation.description,
               securityGroupIngress: operation.securityGroupIngress,
-              ipIngress           : operation.ipIngress
+              ipIngress           : operation.ipIngress,
+              ingressAppendOnly   : operation.ingressAppendOnly ?: false
           ]
       ]
     }
@@ -93,6 +94,9 @@ class AmazonSecurityGroupUpserter implements SecurityGroupUpserter, CloudProvide
       Set mortSecurityGroupIngress = filterForSecurityGroupIngress(mortService, existingSecurityGroup) as Set
       Set targetSecurityGroupIngress = Arrays.asList(stage.mapTo("/securityGroupIngress",
                                                                  MortService.SecurityGroup.SecurityGroupIngress[]))
+      if (stage.context.ingressAppendOnly) {
+        return mortSecurityGroupIngress.containsAll(targetSecurityGroupIngress)
+      }
       return mortSecurityGroupIngress == targetSecurityGroupIngress
     } catch (RetrofitError e) {
       if (e.response?.status != 404) {
