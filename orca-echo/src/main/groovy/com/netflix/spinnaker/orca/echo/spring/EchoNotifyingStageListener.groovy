@@ -55,7 +55,7 @@ class EchoNotifyingStageListener implements StageListener {
     recordEvent('task', (wasSuccessful ? "complete" : "failed"), stage, task)
 
     // TODO: this should all be deleted once we move to v2 engine
-    if (stage.execution instanceof Pipeline) {
+    if (stage.execution instanceof Pipeline && stage.execution.executionEngine == "v1") {
       if (wasSuccessful) {
         if (task.name.contains('stageEnd')) {
           recordEvent('stage', 'complete', stage, task)
@@ -107,16 +107,11 @@ class EchoNotifyingStageListener implements StageListener {
         ]
       ]
       maybeTask.ifPresent { Task task ->
-        event.content.taskName = task.name
+        event.content.taskName = "${stage.type}.${task.name}".toString()
       }
       echoService.recordEvent(event)
     } catch (Exception e) {
       log.error("Failed to send ${type} event ${phase} ${stage.execution.id} ${maybeTask.map { Task task -> task.name }}", e)
     }
-  }
-
-  @Override
-  int getOrder() {
-    return 1
   }
 }
