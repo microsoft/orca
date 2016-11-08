@@ -17,14 +17,12 @@
 package com.netflix.spinnaker.orca.listeners
 
 import groovy.util.logging.Slf4j
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.orca.ExecutionStatus
 import com.netflix.spinnaker.orca.pipeline.model.Stage
 import com.netflix.spinnaker.orca.pipeline.model.Task
 
 @Slf4j
 class StageStatusPropagationListener implements StageListener {
-  private static final ObjectMapper objectMapper = new ObjectMapper()
 
   @Override
   void beforeTask(Persister persister, Stage stage, Task task) {
@@ -32,9 +30,20 @@ class StageStatusPropagationListener implements StageListener {
       return
     }
 
+    log.debug("***** $stage.execution.id Stage ${stage.type} starting")
     log.info("Marking Stage as RUNNING (stageId: ${stage.id})")
     stage.startTime = stage.startTime ?: System.currentTimeMillis()
     stage.status = ExecutionStatus.RUNNING
+
+    if (stage.execution.executionEngine == "v2") {
+      stage.context.stageDetails = [
+        name       : stage.name,
+        type       : stage.type,
+        startTime  : stage.startTime,
+        isSynthetic: stage.syntheticStageOwner != null
+      ]
+    }
+
     persister.save(stage)
   }
 
@@ -63,12 +72,18 @@ class StageStatusPropagationListener implements StageListener {
         stage.status = executionStatus
 
         if (executionStatus.complete) {
+          log.debug("***** $stage.execution.id Stage $stage.type $executionStatus")
           stage.endTime = stage.endTime ?: System.currentTimeMillis()
         }
       }
     } else {
+      log.debug("***** $stage.execution.id Stage $stage.type terminal due to missing status")
       stage.endTime = System.currentTimeMillis()
       stage.status = ExecutionStatus.TERMINAL
+    }
+
+    if (stage.endTime && stage.execution.executionEngine == "v2") {
+      stage.context.stageDetails.endTime = stage.endTime
     }
 
     persister.save(stage)
